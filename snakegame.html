@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake Game</title>
+<style>
+    body {
+        background-color: #232323;
+        font-family: Arial, sans-serif;
+        text-align: center;
+    }
+    #game-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 50px;
+    }
+    #game-board {
+        width: 400px;
+        height: 400px;
+        border: 5px solid #FFF;
+        position: relative;
+        background-color: #222;
+    }
+    .snake {
+        width: 20px;
+        height: 20px;
+        background-color: green;
+        border-radius: 50%;
+        position: absolute;
+    }
+    #food {
+        width: 20px;
+        height: 20px;
+        background-color: red;
+        position: absolute;
+        clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    }
+    #scoreboard {
+        margin-top: 20px;
+        color: #FFF;
+    }
+    #score,
+    #highest-score {
+        font-size: 20px;
+        margin: 5px;
+    }
+    #start-button {
+        padding: 10px 20px;
+        font-size: 16px;
+        background-color: #4CAF50;
+        border: none;
+        color: white;
+        cursor: pointer;
+    }
+    #leaderboard {
+        margin-top: 20px;
+        color: #FFF;
+        border-collapse: collapse;
+        width: 200px;
+    }
+    #leaderboard td, #leaderboard th {
+        border: 1px solid #FFF;
+        padding: 8px;
+    }
+    #leaderboard th {
+        background-color: #4CAF50;
+        color: white;
+    }
+</style>
+</head>
+<body>
+<div id="game-container">
+    <div id="game-board"></div>
+    <div id="scoreboard">
+        <div>Score: <span id="score">0</span></div>
+        <div>Highest Score: <span id="highest-score">0</span></div>
+        <button id="start-button">Start</button>
+    </div>
+    <table id="leaderboard">
+        <thead>
+            <tr>
+                <th>Rank</th>
+                <th>Score</th>
+            </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+        </tbody>
+    </table>
+</div>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const gameBoard = document.getElementById("game-board");
+        const scoreDisplay = document.getElementById("score");
+        const highestScoreDisplay = document.getElementById("highest-score");
+        const startButton = document.getElementById("start-button");
+        const leaderboardBody = document.getElementById("leaderboard-body");
+        const blockSize = 20;
+        const boardSize = 400;
+        let snake = [{ x: 200, y: 200 }];
+        let food = { x: 0, y: 0 };
+        let score = 0;
+        let highestScore = localStorage.getItem("highestScore") || 0;
+        let leaderboard = JSON.parse(localStorage.getItem("leaderboard")) || [];
+
+        function draw() {
+            gameBoard.innerHTML = "";
+            snake.forEach(segment => {
+                const snakeElement = document.createElement("div");
+                snakeElement.className = "snake";
+                snakeElement.style.left = segment.x + "px";
+                snakeElement.style.top = segment.y + "px";
+                gameBoard.appendChild(snakeElement);
+            });
+
+            const foodElement = document.createElement("div");
+            foodElement.id = "food";
+            foodElement.style.left = food.x + "px";
+            foodElement.style.top = food.y + "px";
+            gameBoard.appendChild(foodElement);
+        }
+
+        function move() {
+            const head = { x: snake[0].x + blockSize * direction.x, y: snake[0].y + blockSize * direction.y };
+            snake.unshift(head);
+            if (head.x === food.x && head.y === food.y) {
+                score++;
+                scoreDisplay.textContent = score;
+                generateFood();
+            } else {
+                snake.pop();
+            }
+
+            if (head.x < 0 || head.x >= boardSize || head.y < 0 || head.y >= boardSize || checkCollision(head, snake.slice(1))) {
+                endGame();
+            }
+
+            draw();
+        }
+
+        function generateFood() {
+            food.x = Math.floor(Math.random() * (boardSize / blockSize)) * blockSize;
+            food.y = Math.floor(Math.random() * (boardSize / blockSize)) * blockSize;
+        }
+
+        function checkCollision(pos, array) {
+            return array.some(segment => segment.x === pos.x && segment.y === pos.y);
+        }
+
+        function endGame() {
+            if (score > highestScore) {
+                highestScore = score;
+                localStorage.setItem("highestScore", highestScore);
+                highestScoreDisplay.textContent = highestScore;
+            }
+            alert("Game Over! Your Score: " + score);
+            updateLeaderboard(score);
+            score = 0;
+            scoreDisplay.textContent = score;
+            snake = [{ x: 200, y: 200 }];
+            direction = { x: 1, y: 0 };
+            generateFood();
+            draw();
+        }
+
+        function updateLeaderboard(score) {
+            leaderboard.push(score);
+            leaderboard.sort((a, b) => b - a);
+            leaderboard = leaderboard.slice(0, 5); // Keep only top 5 scores
+            localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
+            renderLeaderboard();
+        }
+
+        function renderLeaderboard() {
+            leaderboardBody.innerHTML = "";
+            leaderboard.forEach((score, index) => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${score}</td>
+                `;
+                leaderboardBody.appendChild(row);
+            });
+        }
+
+        document.addEventListener("keydown", function (event) {
+            const keyPressed = event.key;
+            switch (keyPressed) {
+                case "ArrowUp":
+                    if (direction.y !== 1) {
+                        direction = { x: 0, y: -1 };
+                    }
+                    break;
+                case "ArrowDown":
+                    if (direction.y !== -1) {
+                        direction = { x: 0, y: 1 };
+                    }
+                    break;
+                case "ArrowLeft":
+                    if (direction.x !== 1) {
+                        direction = { x: -1, y: 0 };
+                    }
+                    break;
+                case "ArrowRight":
+                    if (direction.x !== -1) {
+                        direction = { x: 1, y: 0 };
+                    }
+                    break;
+            }
+        });
+
+        let direction = { x: 1, y: 0 };
+        generateFood();
+        draw();
+
+        startButton.addEventListener("click", function () {
+            setInterval(move, 100);
+            startButton.style.display = "none";
+        });
+
+        renderLeaderboard();
+    });
+</script>
+</body>
+</html>
